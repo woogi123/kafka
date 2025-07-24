@@ -1,0 +1,15 @@
+# Terraform 캐시/빌드 디렉토리
+.terraform/
+
+# Terraform 상태파일 (민감 정보 포함됨)
+terraform.tfstate
+terraform.tfstate.backup
+
+# Terraform Lock 파일 (선택적 무시)
+.terraform.lock.hcl
+
+# 기타
+crash.log
+*.log
+*.bak
+*.tmp
