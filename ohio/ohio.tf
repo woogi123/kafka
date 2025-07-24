@@ -1,8 +1,15 @@
 # Terraform 설정
+terraform {
+  required_providers {
+    aws = {
+      source  = "hashicorp/aws"
+      version = "~> 5.0"
+    }
+  }
+}
 
 # AWS Provider 설정 - 오하이오 리전
 provider "aws" {
-    alias = "ohio"
     access_key = var.aws_access_key
     secret_key = var.aws_secret_key
     region = "us-east-2"
@@ -33,19 +40,19 @@ data "aws_ami" "amazon_linux" {
 }
 
 # 로컬 Private Key 파일 읽기
-data "local_file" "ohio_private_key" {
-  filename = "${path.module}/test-key.pem"
+data "local_file" "private_key" {
+  filename = "../common/test-key.pem"
 }
 
 # Private Key에서 Public Key 추출
-data "tls_public_key" "ohio_existing_key" {
-  private_key_pem = data.local_file.ohio_private_key.content
+data "tls_public_key" "existing_key" {
+  private_key_pem = data.local_file.private_key.content
 }
 
 # AWS Key Pair 생성
-resource "aws_key_pair" "ohio_test_key" {
+resource "aws_key_pair" "test_key" {
   key_name   = "test-key"
-  public_key = data.tls_public_key.ohio_existing_key.public_key_openssh
+  public_key = data.tls_public_key.existing_key.public_key_openssh
 
   tags = {
     Name = "test-key"
@@ -53,7 +60,7 @@ resource "aws_key_pair" "ohio_test_key" {
 }
 
 # EC2 인스턴스용 보안 그룹
-resource "aws_security_group" "ohio_ec2_sg" {
+resource "aws_security_group" "ec2_sg" {
   name        = "docker-compose-sg"
   description = "Security group for Docker-Compose EC2 instance"
   vpc_id      = data.aws_vpc.default.id
@@ -90,7 +97,7 @@ resource "aws_security_group" "rds_sg" {
     from_port       = 3306
     to_port         = 3306
     protocol        = "tcp"
-    security_groups = [aws_security_group.ohio_ec2_sg.id]
+    security_groups = [aws_security_group.ec2_sg.id]
   }
 
   # PostgreSQL 접근 허용 (포트 5432) - 모든 곳에서
@@ -115,12 +122,12 @@ resource "aws_security_group" "rds_sg" {
 }
 
 # EC2 인스턴스 (Docker-Compose)
-resource "aws_instance" "ohio_docker_compose" {
+resource "aws_instance" "docker_compose" {
   ami           = data.aws_ami.amazon_linux.id
   instance_type = "m5.xlarge"
-  key_name      = aws_key_pair.ohio_test_key.key_name
+  key_name      = aws_key_pair.test_key.key_name
 
-  vpc_security_group_ids = [aws_security_group.ohio_ec2_sg.id]
+  vpc_security_group_ids = [aws_security_group.ec2_sg.id]
 
   tags = {
     Name = "Docker-Compose"
@@ -129,7 +136,7 @@ resource "aws_instance" "ohio_docker_compose" {
 
 # RDS 서브넷 그룹 (MySQL과 PostgreSQL에서 공유)
 resource "aws_db_subnet_group" "default" {
-  name       = "ohio_default-vpc"
+  name       = "default-vpc"
   subnet_ids = data.aws_subnets.default.ids
 
   tags = {
@@ -138,7 +145,7 @@ resource "aws_db_subnet_group" "default" {
 }
 
 # MySQL RDS 인스턴스
-resource "aws_db_instance" "ohio_mysql" {
+resource "aws_db_instance" "mysql" {
   identifier             = "dcmysqldb"
   allocated_storage      = 20
   storage_type           = "gp2"
@@ -163,7 +170,7 @@ resource "aws_db_instance" "ohio_mysql" {
 }
 
 # PostgreSQL RDS 인스턴스
-resource "aws_db_instance" "ohio_postgresql" {
+resource "aws_db_instance" "postgresql" {
   identifier             = "dcpostgresql"
   allocated_storage      = 20
   storage_type           = "gp3"
@@ -189,20 +196,20 @@ resource "aws_db_instance" "ohio_postgresql" {
 # 출력값
 output "ec2_public_ip" {
   description = "Public IP address of the EC2 instance"
-  value       = aws_instance.ohio_docker_compose.public_ip
+  value       = aws_instance.docker_compose.public_ip
 }
 
-output "ohio_mysql_endpoint" {
+output "mysql_endpoint" {
   description = "MySQL RDS instance endpoint"
-  value       = aws_db_instance.ohio_mysql.endpoint
+  value       = aws_db_instance.mysql.endpoint
 }
 
-output "ohio_postgresql_endpoint" {
+output "postgresql_endpoint" {
   description = "PostgreSQL RDS instance endpoint"
-  value       = aws_db_instance.ohio_postgresql.endpoint
+  value       = aws_db_instance.postgresql.endpoint
 }
 
-output "ohio_private_key_path" {
+output "private_key_path" {
   description = "SSH 접근을 위한 Private Key 경로"
-  value       = "${path.module}/test-key.pem"
+  value       = "../common/test-key.pem"
 }

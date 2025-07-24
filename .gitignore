@@ -13,3 +13,17 @@ crash.log
 *.log
 *.bak
 *.tmp
+
+# 변수 파일
+*.tfvars
+
+# 키
+test-key.pem
+
+# 생성 파일
+**/.terraform/
+**/.terraform.*
+**/terraform.tfstate*
+
+# 명령어 파일
+cmd
