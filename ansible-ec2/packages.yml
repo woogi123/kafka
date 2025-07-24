@@ -1,0 +1,67 @@
+---
+- name: Install essential packages on EC2 instances
+  hosts: webservers
+  become: yes
+  gather_facts: yes
+  
+  tasks:
+    - name: Update apt cache
+      apt:
+        update_cache: yes
+        cache_valid_time: 3600
+      
+    - name: Install essential packages
+      apt:
+        name:
+          - wget
+          - unzip
+          - curl
+          - git
+          - htop
+          - vim
+          - tree
+          - jq
+          - openjdk-17-jdk
+        state: present
+        
+    - name: Verify installed packages
+      command: "{{ item }} --version"
+      register: package_versions
+      with_items:
+        - wget
+        - unzip
+        - curl
+        - git
+        - java
+      ignore_errors: yes
+      
+    - name: Display package versions
+      debug:
+        msg: "{{ item.cmd[0] }}: {{ item.stdout_lines[0] if item.stdout_lines else 'Not available' }}"
+      with_items: "{{ package_versions.results }}"
+      
+    - name: Check system information
+      debug:
+        msg: 
+          - "Hostname: {{ ansible_hostname }}"
+          - "OS: {{ ansible_distribution }} {{ ansible_distribution_version }}"
+          - "Architecture: {{ ansible_architecture }}"
+          
+    - name: Set JAVA_HOME environment variable
+      lineinfile:
+        path: /etc/environment
+        line: 'JAVA_HOME=/usr/lib/jvm/java-17-openjdk-amd64'
+        create: yes
+        
+    - name: Verify Java installation and JAVA_HOME
+      shell: |
+        java -version
+        echo "JAVA_HOME: $JAVA_HOME"
+        echo "Java location: $(which java)"
+      register: java_info
+      environment:
+        JAVA_HOME: /usr/lib/jvm/java-17-openjdk-amd64
+        
+    - name: Display Java information
+      debug:
+        msg: "{{ java_info.stdout_lines }}"
